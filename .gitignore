@@ -38,3 +38,5 @@ CircleGoodnessTest.cpp
 SphereCircleTest.cpp
 *.mp4
 *.mkv
+
+.idea/
