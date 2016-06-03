@@ -81,13 +81,31 @@ class GameController(Plugin):
             for pt in events.get('gaze_positions', []):
                 self.gaze_history.append((pt['norm_pos'], pt['confidence']))
 
-        self.gaze_history[:-3] = []
+        self.gaze_history[:-100] = []  # max gaze history length
+        #print self.gaze_history
 
         self.update_action()
 
 
+    def recognize_action(self):
+        # TODO: check if direction or a special action. If special detected, delete gaze history.
+        # TODO: problem je diferenciirat med simple smernimi akcijami in izvajanjem specialnih
+        # TODO: ce je smerna NE izbrises historija; ko detektira da se izvaja posebna akcija blocka normalne in
+        # TODO: odklene ko faila ali konca specialno?
+        # TODO: triggras specialne iz idle pa ne tko da zacne normalne delat.
+        return Action.IDLE
+
+
     def update_action(self):
         # TODO: from gaze to action
+
+        self.action = self.recognize_action()
+        self.action_history.append(self.action)
+        self.action_history[:-7] = []
+
+        if self.simulate_keypresses:
+            self.update_keypress()
+
         # fake test
         if not self.fake_frame_hold:
             self.action = self.fake_action_history[self.fake_counter % len(self.fake_action_history)]
@@ -96,13 +114,13 @@ class GameController(Plugin):
             if self.simulate_keypresses:
                 self.update_keypress()
             self.action_history.append(self.action)
+            self.action_history[:-3] = []
 
             self.fake_counter += 1
             self.fake_frame_hold = 60
         else:
             self.fake_frame_hold -= 1
 
-        self.action_history[:-3] = []
 
 
     def update_keypress(self):
