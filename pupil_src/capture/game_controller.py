@@ -22,6 +22,14 @@ class Action:
             return "Up "
         elif action == self.DOWN:
             return "Down "
+	elif action == self.DOWNLEFT:
+            return ["Down ", "Left "]
+	elif action == self.DOWNRIGHT:
+            return ["Down ", "Right "]
+	elif action == self.UPLEFT:
+            return ["Up ", "Left "]
+	elif action == self.UPRIGHT:
+            return ["Up ", "Right "]
 
 
 class Smoothing_Filter(object):
@@ -111,13 +119,11 @@ class GameController(Plugin):
 				return Action.IDLE
 			elif (centroid_y>2/3):
 				if (centroid_x >2/3):
-					##tuki bi rabla dve akciji, se UP
-					return Action.RIGHT
+					return Action.UPRIGHT
 				elif (centroid_x > 1/3):
 					return Action.UP
 				else:
-					##tud tuki se UP
-					return Action.LEFT
+					return Action.UPLEFT
 			elif (centroid_y > 1/3):
 				if (centroid_x>1/2):
 					return Action.RIGHT
@@ -125,13 +131,11 @@ class GameController(Plugin):
 					return Action.LEFT
 			else:
 				if (centroid_x >2/3):
-					##tuki bi rabla dve akciji, se DOWN
-					return Action.RIGHT
+					return Action.DOWNRIGHT
 				elif (centroid_x > 1/3):
 					return Action.UP
 				else:
-					##tud tuki se DOWN
-					return Action.LEFT
+					return Action.DOWNLEFT
 		else:
 			##check if special action
 			middle_index = len(self.gaze_history)//2
@@ -199,6 +203,18 @@ class GameController(Plugin):
             self.simulate_keypress("keydown " + action.to_string(self.action))
         elif self.action == Action.RIGHT:
             self.simulate_keypress("keydown " + action.to_string(self.action))
+	elif self.action == Action.DOWNLEFT:
+            self.simulate_keypress("keydown " + action.to_string(self.action[0]))
+            self.simulate_keypress("keydown " + action.to_string(self.action[1]))
+	elif self.action == Action.DOWNRIGHT:
+            self.simulate_keypress("keydown " + action.to_string(self.action[0]))
+            self.simulate_keypress("keydown " + action.to_string(self.action[1]))
+	elif self.action == Action.UPLEFT:
+            self.simulate_keypress("keydown " + action.to_string(self.action[0]))
+            self.simulate_keypress("keydown " + action.to_string(self.action[1]))
+	elif self.action == Action.UPRIGHT:
+            self.simulate_keypress("keydown " + action.to_string(self.action[0]))
+            self.simulate_keypress("keydown " + action.to_string(self.action[1]))
 
 
     def simulate_keypress(self, sequence):
