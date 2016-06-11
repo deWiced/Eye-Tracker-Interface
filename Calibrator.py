@@ -1,26 +1,24 @@
-class Calibrator(left, right):
-    '''
-    Class for calibrating pupil positions, takes left and right margin end extends these proportionally to the lower and upper bound (0,1)
-    '''
-	var center
-	var ratioLeft
-	var ratioRight
+class Calibrator():
+'''
+Class for calibrating pupil positions, takes left and right margin end extends these proportionally to the lower and upper bound (0,1)
+'''
+	def setParam(self, points):
+		left = 1
+		right = 0.001
+		for point in points:
+			if point < left:
+				left = point
+			if point > right:
+				right = point
 
-    def __init__(self, points[]):
-	for point in points:
-		if point < left
-			left = point
-		if point > right
-			right = point
+		self.center = (right + left) / 2
+		self.ratioLeft = self.center/(self.center - left)
+		self.ratioRight = (1.0 - self.center)/(right - self.center)
 
-	center = (self.right + self.left) / 2
-	ratioLeft = center/(center - self.left)
-	ratioRight = (1.0 - center)/(self.right - center)
-
-    def calibration(newLeft, newRight):
-	var calibratedLeft = center - ((center - self.newLeft) * ratioLeft)
-	if calibratedLeft < 0.0
-		calibratedLeft = 0.0
-	var calibratedRight = center + ((self.newRight - center) * ratioRight)
-	if calibratedRight > 1
-		calibratedRight = 1
+	def calibration(self, newLeft, newRight):
+		calibratedLeft = self.center - ((self.center - self.newLeft) * self.ratioLeft)
+		if calibratedLeft < 0.1:
+			calibratedLeft = 0.1
+		calibratedRight = self.center + ((self.newRight - self.center) * self.ratioRight)
+		if calibratedRight > 1:
+			calibratedRight = 1
