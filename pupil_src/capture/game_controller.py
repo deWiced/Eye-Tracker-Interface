@@ -5,6 +5,7 @@ It's also a plugin. Mind = blown. But not like Jesse was.
 
 from plugin import Plugin
 from subprocess import Popen, PIPE
+from scipy import stats
 
 
 class Action:
@@ -55,7 +56,7 @@ class GameController(Plugin):
     '''
     # TODO: keypress start/stop when over radius threshold (game engine type checking).
 
-    def __init__(self, g_pool, filter_active=True, simulate_keypresses=True, no_action_radius=0.5):
+    def __init__(self, g_pool, filter_active=True, simulate_keypresses=True, no_action_radius=0.25):
         super(GameController, self).__init__(g_pool)
         self.filter_active = filter_active
         self.simulate_keypresses = simulate_keypresses
@@ -93,7 +94,62 @@ class GameController(Plugin):
         # TODO: ce je smerna NE izbrises historija; ko detektira da se izvaja posebna akcija blocka normalne in
         # TODO: odklene ko faila ali konca specialno?
         # TODO: triggras specialne iz idle pa ne tko da zacne normalne delat.
-        return Action.IDLE
+
+	#ali je simple akcija
+	short_gaze_len = 10
+	distance_treshold = 0.07
+	
+	try:
+		short_gaze_history = self.gaze_history[:short_gaze_len]
+
+		centroid_x = sum([gaze[0][0] for gaze in short_gaze_history])/short_gaze_len
+		centroid_y = sum([gaze[0][1] for gaze in short_gaze_history])/short_gaze_len
+		short_gaze_history_dev = (sum([(gaze[0][0]-centroid_x)**2+(gaze[0][1]-centroid_y)**2 for gaze in short_gaze_history])/short_gaze_len)**(1/2)
+		if short_gaze_history_dev <= distance_treshold:
+			self.gaze_history = []
+			if (((centroid_x-1/2)**2+(centroid_y-1/2)**2)**(1/2) <= self.no_action_radius):
+				return Action.IDLE
+			elif (centroid_y>2/3):
+				if (centroid_x >2/3):
+					##tuki bi rabla dve akciji, se UP
+					return Action.RIGHT
+				elif (centroid_x > 1/3):
+					return Action.UP
+				else:
+					##tud tuki se UP
+					return Action.LEFT
+			elif (centroid_y > 1/3):
+				if (centroid_x>1/2):
+					return Action.RIGHT
+				else:
+					return Action.LEFT
+			else:
+				if (centroid_x >2/3):
+					##tuki bi rabla dve akciji, se DOWN
+					return Action.RIGHT
+				elif (centroid_x > 1/3):
+					return Action.UP
+				else:
+					##tud tuki se DOWN
+					return Action.LEFT
+		else:
+			##check if special action
+			middle_index = len(self.gaze_history)//2
+			slope1, intercept1, r_value1, p_value1, std_err1 = stats.linregress(self.gaze_history[:middle_index][0])
+			slope2, intercept2, r_value2, p_value2, std_err2 = stats.linregress(self.gaze_history[middle_index:][0])
+			if (abs(slope1+slope2)<0.2 and slope1*slope2<0):
+				if (slope1<0):
+					self.gaze_history = []
+					return Action.V
+				elif (slope2<0):
+					self.gaze_history = []
+					return Action.A
+				else:
+					return Action.IDLE
+			else:
+				return Action.IDLE
+	except:
+		return Action.IDLE
 
 
     def update_action(self):
