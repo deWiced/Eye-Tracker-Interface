@@ -8,7 +8,7 @@ from subprocess import Popen, PIPE
 
 
 class Action:
-    IDLE, LEFT, RIGHT, UP, DOWN = range(5)
+    IDLE, LEFT, RIGHT, UP, DOWN, SPECIAL_0, SPECIAL_1 = range(7)
 
     def to_string(self, action):
         if action == self.IDLE:
@@ -21,6 +21,10 @@ class Action:
             return "Up "
         elif action == self.DOWN:
             return "Down "
+        elif action == self.SPECIAL_0:
+            return "Escape "
+        elif action == self.SPECIAL_1:
+            return "N "
 
 
 class Smoothing_Filter(object):
