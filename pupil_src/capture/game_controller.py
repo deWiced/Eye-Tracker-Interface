@@ -6,6 +6,7 @@ It's also a plugin. Mind = blown. But not like Jesse was.
 from plugin import Plugin
 from subprocess import Popen, PIPE
 from scipy import stats
+import numpy as np
 import sys
 import threading
 from action_learner import ActionLearner
@@ -97,8 +98,8 @@ class GameController(Plugin):
         self.learner = None
 
         # fake test
-        self.fake_gaze_history = [((-1,0), 1), ((0,0), 1), ((1,0), 1), ((0,0), 1)]
-        self.fake_action_history = [Action.W, Action.IDLE, Action.E, Action.IDLE]
+        self.fake_gaze_history = [((0,0),1), ((1/2,1/2),1)]
+        self.fake_action_history = [Action.SW, Action.IDLE]
         self.fake_frame_hold = 60
         self.fake_counter = 0
 
@@ -213,50 +214,36 @@ class GameController(Plugin):
         try:
             short_gaze_history = self.gaze_history[:short_gaze_len]
 
+			#min in ax vrednost
+			min_index = [gaze[0][1] for gaze in self.gaze_history].index(min([gaze[1] for gaze in self.gaze_history]))
+			min_x, min_y = self.gaze_history(min_index)[0]
+			max_index = [gaze[0][1] for gaze in self.gaze_history].index(max([gaze[1] for gaze in self.gaze_history]))
+			max_x, max_y = self.gaze_history(max_index)[0]
+
+			#centroid in devianco se računa na krajšem gaze_history-ju, ker je akcija krajša
             centroid_x = sum([gaze[0][0] for gaze in short_gaze_history])/short_gaze_len
             centroid_y = sum([gaze[0][1] for gaze in short_gaze_history])/short_gaze_len
-            short_gaze_history_dev = (sum([(gaze[0][0]-centroid_x)**2+(gaze[0][1]-centroid_y)**2 for gaze in short_gaze_history])/short_gaze_len)**(1/2)
-            if short_gaze_history_dev <= distance_treshold:
-                self.gaze_history = []
-                if (((centroid_x-1/2)**2+(centroid_y-1/2)**2)**(1/2) <= self.no_action_radius):
-                    return Action.IDLE
-                elif (centroid_y>2/3):
-                    if (centroid_x >2/3):
-                        return Action.NE
-                    elif (centroid_x > 1/3):
-                        return Action.N
-                    else:
-                        return Action.NW
-                elif (centroid_y > 1/3):
-                    if (centroid_x>1/2):
-                        return Action.E
-                    else:
-                        return Action.W
-                else:
-                    if (centroid_x >2/3):
-                        return Action.SE
-                    elif (centroid_x > 1/3):
-                        return Action.N
-                    else:
-                        return Action.SW
-            else:
-                ##check if special action
-                middle_index = len(self.gaze_history)//2
-                slope1, intercept1, r_value1, p_value1, std_err1 = stats.linregress(self.gaze_history[:middle_index][0])
-                slope2, intercept2, r_value2, p_value2, std_err2 = stats.linregress(self.gaze_history[middle_index:][0])
-                if (abs(slope1+slope2)<0.2 and slope1*slope2<0):
-                    if (slope1<0):
-                        self.gaze_history = []
-                        return Action.V
-                    elif (slope2<0):
-                        self.gaze_history = []
-                        return Action.A
-                    else:
-                        return Action.IDLE
-                else:
-                    return Action.IDLE
-        except:
-            return Action.IDLE
+            centroid_dev = (sum([(gaze[0][0]-centroid_x)**2+(gaze[0][1]-centroid_y)**2 for gaze in short_gaze_history])/short_gaze_len)**(1/2)
+			
+			#special akcije se računa na celotnem gaze history
+			#aproksimiramo s polinomom 2. stopnje
+			points = np.array([gaze[0] for gaze in self.gaze_history])
+			# get x and y vectors
+			x = points[:,0]
+			y = points[:,1]
+
+			# calculate polynomial
+			z = np.polyfit(x, y, 2, full= True) #Polynomial coefficients, highest power first; residuals; rank; singular values; cond. tresh.
+
+			features = np.append(np.array(z[0]), np.array(z[1]))
+			features = np.append(features , np.array([min_x, min_y, max_x, max_y, centroid_x, centroid_y, centroid_dev])
+
+			return self.learner.predict(features)
+
+			
+			
+		except:
+			return Action.IDLE
 
 
     def update_action(self):
@@ -293,7 +280,8 @@ class GameController(Plugin):
             self.fake_frame_hold = 60
         else:
             self.fake_frame_hold -= 1
-        '''
+	'''
+        
 
 
     def update_keypress(self):
@@ -322,8 +310,8 @@ class GameController(Plugin):
         elif self.action == Action.E:
             self.simulate_keypress("keydown " + action.to_string(self.action))
         elif self.action == Action.SW:
-            self.simulate_keypress("keydown " + action.to_string(self.action)[0])  # self.action[0] ??? wat srsly glej faking kodo k pises shit
-            self.simulate_keypress("keydown " + action.to_string(self.action)[1])
+            self.simulate_keypress("keydown " + action.to_string(self.action)[1])  # self.action[0] ??? wat srsly glej faking kodo k pises shit
+            self.simulate_keypress("keydown " + "space ")
         elif self.action == Action.SE:
             self.simulate_keypress("keydown " + action.to_string(self.action)[0])
             self.simulate_keypress("keydown " + action.to_string(self.action)[1])
