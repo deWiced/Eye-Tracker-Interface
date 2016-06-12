@@ -98,7 +98,10 @@ class GameController(Plugin):
         self.learner = None
 
         # fake test
-        self.fake_gaze_history = [((0,0),1), ((1/2,1/2),1)]
+        x = np.arange(100)
+        y = np.random.rand(100)
+        self.fake_gaze_history = [((x[i],y[i]),1) for i in range(len(x))]
+        #self.fake_gaze_history = [((0,0),1), ((1/2,1/2),1)]
         self.fake_action_history = [Action.SW, Action.IDLE]
         self.fake_frame_hold = 60
         self.fake_counter = 0
@@ -201,6 +204,7 @@ class GameController(Plugin):
 
 
     def recognize_action(self):
+      
         # TODO: check if direction or a special action. If special detected, delete gaze history.
         # TODO: problem je diferenciirat med simple smernimi akcijami in izvajanjem specialnih
         # TODO: ce je smerna NE izbrises historija; ko detektira da se izvaja posebna akcija blocka normalne in
@@ -212,11 +216,13 @@ class GameController(Plugin):
 
         try:
             short_gaze_history = self.gaze_history[:short_gaze_len]
+            
             #min in max vrednost
-            min_index = [gaze[0][1] for gaze in self.gaze_history].index(min([gaze[1] for gaze in self.gaze_history]))
-            min_x, min_y = self.gaze_history(min_index)[0]
-            max_index = [gaze[0][1] for gaze in self.gaze_history].index(max([gaze[1] for gaze in self.gaze_history]))
-            max_x, max_y = self.gaze_history(max_index)[0]
+            min_index = [gaze[0][1] for gaze in self.gaze_history].index(min([gaze[0][1] for gaze in self.gaze_history]))
+            min_x, min_y = self.gaze_history[min_index][0]
+            max_index = [gaze[0][1] for gaze in self.gaze_history].index(max([gaze[0][1] for gaze in self.gaze_history]))
+            max_x, max_y = self.gaze_history[max_index][0]
+
             #centroid in devianco se racuna na krajsem gaze_history-ju, ker je akcija krajsa
             centroid_x = sum([gaze[0][0] for gaze in short_gaze_history])/short_gaze_len
             centroid_y = sum([gaze[0][1] for gaze in short_gaze_history])/short_gaze_len
@@ -225,6 +231,7 @@ class GameController(Plugin):
             #special akcije se racuna na celotnem gaze history
             #aproksimiramo s polinomom 2. stopnje
             points = np.array([gaze[0] for gaze in self.gaze_history])
+
             # get x and y vectors
             x = points[:,0]
             y = points[:,1]
@@ -236,9 +243,13 @@ class GameController(Plugin):
 
             self.gaze_history = []
 
+            print(features)
+
             action_pred = self.ActionLearner.predict(features)
 
-        except: action_pred = Action.IDLE
+        except:
+            print("except")
+            action_pred = Action.IDLE
 
 	return action_pred
 
@@ -255,6 +266,7 @@ class GameController(Plugin):
         # torej: v recognize nared extrakcijo znacilk in posl v prediktor
         # v prediktorju dobis action, ce je pa % pod thresholdom pa na roke dolocs kera akcija je,
         # tko k zdele delas i think v recognize_action
+
         self.action = self.recognize_action()
         self.action_history.append(self.action)
         self.action_history[:-7] = []
