@@ -72,7 +72,6 @@ class GameController(Plugin):
     '''
     Central area where nothing happens, and 4 directions where shit happens.
     '''
-    # TODO: keypress start/stop when over radius threshold (game engine type checking).
 
     def __init__(self, g_pool, filter_active=True, simulate_keypresses=True, no_action_radius=0.25):
         super(GameController, self).__init__(g_pool)
@@ -109,7 +108,6 @@ class GameController(Plugin):
         #threading.Thread(target=self.key_capturing).start()
 
     def update(self, frame, events):
-        # TODO: last 3? so there are more per frame???
 
         frame_positions = []
 
@@ -130,14 +128,14 @@ class GameController(Plugin):
             return
 
         if not self.calibrated and len(self.gaze_history) == 100:
-            self.calibrator = Calibrator(self.gaze_history) 
+            self.calibrator = Calibrator(self.gaze_history)
             self.calibrated = True
 
         if not self.learned and self.click_count % 2 == 1:
             self.learning_data_single_take += frame_positions
 
         if not self.learned and len(self.learning_data) == self.learning_repetitions * Action.action_count:
-            self.learner = ActionLearner(self.learning_data, self.accepted_threshold)
+            self.learner = ActionLearner(self.learning_data)
             self.learned = True
 
         if self.calibrated and self.learned:
@@ -197,56 +195,97 @@ class GameController(Plugin):
 
         print self.click_count
 
+    def get_features(gaze_history):
+        #ali je simple akcija
+        short_gaze_len = 10
+
+        short_gaze_history = gaze_history[:short_gaze_len]
+
+        #min in max vrednost
+        min_index = [gaze[0][1] for gaze in gaze_history].index(min([gaze[0][1] for gaze in gaze_history]))
+        min_x, min_y = gaze_history[min_index][0]
+        max_index = [gaze[0][1] for gaze in gaze_history].index(max([gaze[0][1] for gaze in gaze_history]))
+        max_x, max_y = gaze_history[max_index][0]
+
+        #centroid in devianco se racuna na krajsem gaze_history-ju, ker je akcija krajsa
+        centroid_x = sum([gaze[0][0] for gaze in short_gaze_history])/short_gaze_len
+        centroid_y = sum([gaze[0][1] for gaze in short_gaze_history])/short_gaze_len
+        centroid_dev = (sum([(gaze[0][0]-centroid_x)**2+(gaze[0][1]-centroid_y)**2 for gaze in short_gaze_history])/short_gaze_len)**(1/2)
+
+        #special akcije se racuna na celotnem gaze history
+        #aproksimiramo s polinomom 2. stopnje
+        points = np.array([gaze[0] for gaze in gaze_history])
+
+        # get x and y vectors
+        x = points[:,0]
+        y = points[:,1]
+
+        # calculate polynomial
+        z = np.polyfit(x, y, 2, full= True) #Polynomial coefficients, highest power first; residuals; rank; singular values; cond. tresh.
+        features = np.append(np.array(z[0]), np.array(z[1]))
+        features = np.append(features, np.array([min_x, min_y, max_x, max_y, centroid_x, centroid_y, centroid_dev]))
+
+        return features
 
     def recognize_action(self):
-      
+
         # TODO: check if direction or a special action. If special detected, delete gaze history.
         # TODO: problem je diferenciirat med simple smernimi akcijami in izvajanjem specialnih
         # TODO: ce je smerna NE izbrises historija; ko detektira da se izvaja posebna akcija blocka normalne in
         # TODO: odklene ko faila ali konca specialno?
         # TODO: triggras specialne iz idle pa ne tko da zacne normalne delat.
 
-        #ali je simple akcija
-        short_gaze_len = 10
+        dev_treshold = 0.3
 
         try:
-            short_gaze_history = self.gaze_history[:short_gaze_len]
-            
-            #min in max vrednost
-            min_index = [gaze[0][1] for gaze in self.gaze_history].index(min([gaze[0][1] for gaze in self.gaze_history]))
-            min_x, min_y = self.gaze_history[min_index][0]
-            max_index = [gaze[0][1] for gaze in self.gaze_history].index(max([gaze[0][1] for gaze in self.gaze_history]))
-            max_x, max_y = self.gaze_history[max_index][0]
-
-            #centroid in devianco se racuna na krajsem gaze_history-ju, ker je akcija krajsa
-            centroid_x = sum([gaze[0][0] for gaze in short_gaze_history])/short_gaze_len
-            centroid_y = sum([gaze[0][1] for gaze in short_gaze_history])/short_gaze_len
-            centroid_dev = (sum([(gaze[0][0]-centroid_x)**2+(gaze[0][1]-centroid_y)**2 for gaze in short_gaze_history])/short_gaze_len)**(1/2)
-
-            #special akcije se racuna na celotnem gaze history
-            #aproksimiramo s polinomom 2. stopnje
-            points = np.array([gaze[0] for gaze in self.gaze_history])
-
-            # get x and y vectors
-            x = points[:,0]
-            y = points[:,1]
-
-            # calculate polynomial
-            z = np.polyfit(x, y, 2, full= True) #Polynomial coefficients, highest power first; residuals; rank; singular values; cond. tresh.
-            features = np.append(np.array(z[0]), np.array(z[1]))
-            features = np.append(features, np.array([min_x, min_y, max_x, max_y, centroid_x, centroid_y, centroid_dev]))
+            features = get_features(self.gaze_history)
 
             self.gaze_history = []
+            action_pred, confidence = self.learner.predict(features)
 
-            print(features)
+            if confidence < self.accepted_threshold:
+                short_gaze_history = self.gaze_history[:short_gaze_len]
 
-            action_pred = self.ActionLearner.predict(features)
+                centroid_x = sum([gaze[0][0] for gaze in short_gaze_history])/short_gaze_len
+                centroid_y = sum([gaze[0][1] for gaze in short_gaze_history])/short_gaze_len
+                centroid_dev = (sum([(gaze[0][0]-centroid_x)**2+(gaze[0][1]-centroid_y)**2 for gaze in short_gaze_history])/short_gaze_len)**(1/2)
+
+                if dentroid_dev <= dev_treshold:
+
+                    self.gaze_history = []
+
+                    if (((centroid_x-1/2)**2+(centroid_y-1/2)**2)**(1/2) <= self.no_action_radius):
+                        return Action.IDLE
+
+                    elif (centroid_y>2/3):
+                        if (centroid_x >2/3):
+                            return Action.NE
+                        elif (centroid_x > 1/3):
+                            return Action.N
+                        else:
+                            return Action.NW
+
+                    elif (centroid_y > 1/3):
+                        if (centroid_x>1/2):
+                            return Action.E
+                        else:
+                            return Action.LEFT
+
+                    else:
+                        if (centroid_x >2/3):
+                            return Action.WE
+                        elif (centroid_x > 1/3):
+                            return Action.S
+                        else:
+                            return Action.SW
+                else:
+                    return Action.IDLE
 
         except:
             print("except")
             action_pred = Action.IDLE
 
-	return action_pred
+        return action_pred
 
 
     def update_action(self):
@@ -282,8 +321,7 @@ class GameController(Plugin):
             self.fake_frame_hold = 60
         else:
             self.fake_frame_hold -= 1
-		'''
-        
+        '''
 
 
     def update_keypress(self):
@@ -292,7 +330,7 @@ class GameController(Plugin):
             return
 
         print self.action
-        action = Action()  # TODO: NEMORS KR TKO! ce sta dva pressa mors oba nehat izvajat!
+        action = Action()
 
         if self.action_history[-1] == Action.NW or self.action_history[-1] == Action.NE \
                 or self.action_history[-1] == Action.SW or self.action_history[-1] == Action.SE:
@@ -312,7 +350,7 @@ class GameController(Plugin):
         elif self.action == Action.E:
             self.simulate_keypress("keydown " + action.to_string(self.action))
         elif self.action == Action.SW:
-            self.simulate_keypress("keydown " + action.to_string(self.action)[1])  # self.action[0] ??? wat srsly glej faking kodo k pises shit
+            self.simulate_keypress("keydown " + action.to_string(self.action)[1])
             self.simulate_keypress("keydown " + "space ")
         elif self.action == Action.SE:
             self.simulate_keypress("keydown " + action.to_string(self.action)[0])
