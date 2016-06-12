@@ -22,15 +22,16 @@ class ActionLearner:
         print prediction, prediction_probs, prediction_prob
 
         if prediction < self.threshold:
-            pass # TODO: doloc na roke...
+            # TODO: znacilk naj bo ene par in nared metodo v controlerju k jih nardi iz podatkov
+            pass # TODO: doloc na roke... in das prediction = Action.neki
 
         return prediction
 
 
 if __name__ == '__main__':
     # TODO: normalize data?
-    data = np.array([[0, 0, 0, "a"], [0.2, 0.2, 0.2, "b"], [0.4, 0.4, 0.4, "c"], [0.6, 0.6, 0.5,"d"], [0.8, 0.8, 0.8, "e"], [1, 1, 1, "f"]]) #[0.1, 0.1, 0.1, 0],
-    learner = ActionLearner(data, 0.5)
+    test_data = np.array([[0, 0, 0, "a"], [0.2, 0.2, 0.2, "b"], [0.4, 0.4, 0.4, "c"], [0.6, 0.6, 0.5,"d"], [0.8, 0.8, 0.8, "e"], [1, 1, 1, "f"]]) #[0.1, 0.1, 0.1, 0],
+    learner = ActionLearner(test_data, 0.5)
     learner.predict(np.array([0.5, 0.5, 0.5]))
 
 
