@@ -209,41 +209,38 @@ class GameController(Plugin):
 
         #ali je simple akcija
         short_gaze_len = 10
-        distance_treshold = 0.07
 
         try:
             short_gaze_history = self.gaze_history[:short_gaze_len]
-
-			#min in ax vrednost
-			min_index = [gaze[0][1] for gaze in self.gaze_history].index(min([gaze[1] for gaze in self.gaze_history]))
-			min_x, min_y = self.gaze_history(min_index)[0]
-			max_index = [gaze[0][1] for gaze in self.gaze_history].index(max([gaze[1] for gaze in self.gaze_history]))
-			max_x, max_y = self.gaze_history(max_index)[0]
-
-			#centroid in devianco se računa na krajšem gaze_history-ju, ker je akcija krajša
+            #min in max vrednost
+            min_index = [gaze[0][1] for gaze in self.gaze_history].index(min([gaze[1] for gaze in self.gaze_history]))
+            min_x, min_y = self.gaze_history(min_index)[0]
+            max_index = [gaze[0][1] for gaze in self.gaze_history].index(max([gaze[1] for gaze in self.gaze_history]))
+            max_x, max_y = self.gaze_history(max_index)[0]
+            #centroid in devianco se racuna na krajsem gaze_history-ju, ker je akcija krajsa
             centroid_x = sum([gaze[0][0] for gaze in short_gaze_history])/short_gaze_len
             centroid_y = sum([gaze[0][1] for gaze in short_gaze_history])/short_gaze_len
             centroid_dev = (sum([(gaze[0][0]-centroid_x)**2+(gaze[0][1]-centroid_y)**2 for gaze in short_gaze_history])/short_gaze_len)**(1/2)
-			
-			#special akcije se računa na celotnem gaze history
-			#aproksimiramo s polinomom 2. stopnje
-			points = np.array([gaze[0] for gaze in self.gaze_history])
-			# get x and y vectors
-			x = points[:,0]
-			y = points[:,1]
 
-			# calculate polynomial
-			z = np.polyfit(x, y, 2, full= True) #Polynomial coefficients, highest power first; residuals; rank; singular values; cond. tresh.
+            #special akcije se racuna na celotnem gaze history
+            #aproksimiramo s polinomom 2. stopnje
+            points = np.array([gaze[0] for gaze in self.gaze_history])
+            # get x and y vectors
+            x = points[:,0]
+            y = points[:,1]
 
-			features = np.append(np.array(z[0]), np.array(z[1]))
-			features = np.append(features , np.array([min_x, min_y, max_x, max_y, centroid_x, centroid_y, centroid_dev])
+            # calculate polynomial
+            z = np.polyfit(x, y, 2, full= True) #Polynomial coefficients, highest power first; residuals; rank; singular values; cond. tresh.
+            features = np.append(np.array(z[0]), np.array(z[1]))
+            features = np.append(features, np.array([min_x, min_y, max_x, max_y, centroid_x, centroid_y, centroid_dev]))
 
-			return self.learner.predict(features)
+            self.gaze_history = []
 
-			
-			
-		except:
-			return Action.IDLE
+            action_pred = self.ActionLearner.predict(features)
+
+        except: action_pred = Action.IDLE
+
+	return action_pred
 
 
     def update_action(self):
@@ -280,7 +277,7 @@ class GameController(Plugin):
             self.fake_frame_hold = 60
         else:
             self.fake_frame_hold -= 1
-	'''
+		'''
         
 
 
