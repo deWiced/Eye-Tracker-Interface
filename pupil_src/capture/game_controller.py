@@ -10,7 +10,7 @@ import numpy as np
 import sys
 import threading
 from action_learner import ActionLearner
-
+from Calibrator import Calibrator
 
 class Action:
     action_count = 11
@@ -154,7 +154,7 @@ class GameController(Plugin):
 
         if self.click_count % 2 == 0:
             print self.learning_data_single_take + [actions[self.learning_index]]
-            self.learning_data.append(self.learning_data_single_take + [actions[self.learning_index]])
+            self.learning_data.append(self.get_features(self.learning_data_single_take) + [actions[self.learning_index]])
             self.learning_data_single_take = []
 
             if self.click_count % (2 * self.learning_repetitions) == 0:
@@ -195,7 +195,7 @@ class GameController(Plugin):
 
         print self.click_count
 
-    def get_features(gaze_history):
+    def get_features(self, gaze_history):
         #ali je simple akcija
         short_gaze_len = 10
 
@@ -235,10 +235,11 @@ class GameController(Plugin):
         # TODO: odklene ko faila ali konca specialno?
         # TODO: triggras specialne iz idle pa ne tko da zacne normalne delat.
 
+        short_gaze_len = 10
         dev_treshold = 0.3
 
         try:
-            features = get_features(self.gaze_history)
+            features = self.get_features(self.gaze_history)
 
             self.gaze_history = []
             action_pred, confidence = self.learner.predict(features)
@@ -250,7 +251,7 @@ class GameController(Plugin):
                 centroid_y = sum([gaze[0][1] for gaze in short_gaze_history])/short_gaze_len
                 centroid_dev = (sum([(gaze[0][0]-centroid_x)**2+(gaze[0][1]-centroid_y)**2 for gaze in short_gaze_history])/short_gaze_len)**(1/2)
 
-                if dentroid_dev <= dev_treshold:
+                if centroid_dev <= dev_treshold:
 
                     self.gaze_history = []
 
@@ -269,11 +270,11 @@ class GameController(Plugin):
                         if (centroid_x>1/2):
                             return Action.E
                         else:
-                            return Action.LEFT
+                            return Action.W
 
                     else:
                         if (centroid_x >2/3):
-                            return Action.WE
+                            return Action.SE
                         elif (centroid_x > 1/3):
                             return Action.S
                         else:
