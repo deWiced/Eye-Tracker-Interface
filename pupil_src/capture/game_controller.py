@@ -72,6 +72,7 @@ class GameController(Plugin):
     '''
     Central area where nothing happens, and 4 directions where shit happens.
     '''
+    # TODO: keypress start/stop when over radius threshold (game engine type checking).
 
     def __init__(self, g_pool, filter_active=True, simulate_keypresses=True, no_action_radius=0.25):
         super(GameController, self).__init__(g_pool)
@@ -83,7 +84,7 @@ class GameController(Plugin):
         self.action = Action.IDLE
 
         self.pause = True
-        self.calibrated = True  # TODO: FALSE! in kalibracija!
+        self.calibrated = False
         self.learned = False
 
         self.calibrator = None
@@ -108,6 +109,8 @@ class GameController(Plugin):
         #threading.Thread(target=self.key_capturing).start()
 
     def update(self, frame, events):
+        # TODO: last 3? so there are more per frame???
+
         frame_positions = []
 
         if self.filter_active:
@@ -118,7 +121,7 @@ class GameController(Plugin):
                 frame_positions.append((pt['norm_pos'], pt['confidence']))
 
         if self.calibrated:
-            pass  # frame_positions = self.calibrator.transform(frame_positions)
+            frame_positions = self.calibrator.transform(frame_positions)
 
         self.gaze_history += frame_positions
         self.gaze_history[:-100] = []  # max gaze history length
@@ -126,20 +129,15 @@ class GameController(Plugin):
         if self.pause:
             return
 
-        # calibrate
         if not self.calibrated and len(self.gaze_history) == 100:
-            # TODO: calibrate in pol vsakic skos to fuknes tocke za naprej obdelat
-            # fuknes v calibrator cel history
-            # self.calibrator = Calibrator(self.gaze_history) # kle nardi instanco v kero pol zgori
-            # sam filas shit
-            # self.calibrated = True
-            pass
+            self.calibrator = Calibrator(self.gaze_history) 
+            self.calibrated = True
 
         if not self.learned and self.click_count % 2 == 1:
             self.learning_data_single_take += frame_positions
 
         if not self.learned and len(self.learning_data) == self.learning_repetitions * Action.action_count:
-            self.learner = ActionLearner(self.learning_data)
+            self.learner = ActionLearner(self.learning_data, self.accepted_threshold)
             self.learned = True
 
         if self.calibrated and self.learned:
@@ -242,17 +240,13 @@ class GameController(Plugin):
 
             print(features)
 
-            action_pred, confidence = self.learner.predict(features)
-
-            if confidence < self.accepted_threshold:
-                # TODO: znacilk naj bo ene par in nared metodo v controlerju k jih nardi iz podatkov
-                pass  # TODO: doloc na roke... in das prediction = Action.neki
+            action_pred = self.ActionLearner.predict(features)
 
         except:
             print("except")
-            action_pred = Action.IDLE # TODO: tole bo stran za dat. al learner pove da je idle al pa na roke ugotovis da je kle zgori
+            action_pred = Action.IDLE
 
-        return action_pred
+	return action_pred
 
 
     def update_action(self):
@@ -279,18 +273,18 @@ class GameController(Plugin):
         # fake test
         if not self.fake_frame_hold:
             self.action = self.fake_action_history[self.fake_counter % len(self.fake_action_history)]
-
             # TODO: not here
             if self.simulate_keypresses:
                 self.update_keypress()
             self.action_history.append(self.action)
             self.action_history[:-3] = []
-
             self.fake_counter += 1
             self.fake_frame_hold = 60
         else:
             self.fake_frame_hold -= 1
-        '''
+		'''
+        
+
 
     def update_keypress(self):
         # TODO: only change when different action, otherwise continuous press (game engine)
@@ -298,7 +292,7 @@ class GameController(Plugin):
             return
 
         print self.action
-        action = Action()
+        action = Action()  # TODO: NEMORS KR TKO! ce sta dva pressa mors oba nehat izvajat!
 
         if self.action_history[-1] == Action.NW or self.action_history[-1] == Action.NE \
                 or self.action_history[-1] == Action.SW or self.action_history[-1] == Action.SE:
@@ -318,7 +312,7 @@ class GameController(Plugin):
         elif self.action == Action.E:
             self.simulate_keypress("keydown " + action.to_string(self.action))
         elif self.action == Action.SW:
-            self.simulate_keypress("keydown " + action.to_string(self.action)[1])
+            self.simulate_keypress("keydown " + action.to_string(self.action)[1])  # self.action[0] ??? wat srsly glej faking kodo k pises shit
             self.simulate_keypress("keydown " + "space ")
         elif self.action == Action.SE:
             self.simulate_keypress("keydown " + action.to_string(self.action)[0])
@@ -350,7 +344,6 @@ class GameController(Plugin):
         #    print( key, end="", flush = True)
         print self.calibrated
         sys.stdout.flush()
-
     def key_capturing(self):
         while True:
             self.process(sys.stdin.read(1))

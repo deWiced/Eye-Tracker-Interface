@@ -45,27 +45,28 @@ class Calibrator:
             calibratedLeftX = self.centerX - ((self.centerX - newleftX) * self.ratioLeftX)
  	    if calibratedLeftX < 0.1:
                 calibratedLeftX = 0.1
-            calibratedPoints.append(calibratedLeftX)
+            new_gaze[0][0] = calibratedLeftX
         else:
             newrightX = new_gaze[0][0]
             calibratedRightX = self.centerX + ((newrightX - self.centerX) * self.ratioRightX)
 	    if calibratedRightX > 1:
                 calibratedRightX = 1
-            calibratedPoints.append(calibratedRightX)
-        if new_gaze[0][1] < self.centerY:
+            new_gaze[0][0] = calibratedRightX
+        
+	if new_gaze[0][1] < self.centerY:
             newleftY = new_gaze[0][1]
             calibratedLeftY = self.centerY - ((self.centerY - newleftY) * self.ratioLeftY)
 	    if calibratedLeftY < 0.1:
                 calibratedLeftY = 0.1
-            calibratedPoints.append(calibratedLeftY)
+            new_gaze[0][1] = calibratedLeftY
         else:
             newrightY = new_gaze[0][1]
             calibratedRightY = self.centerY + ((newrightY - self.centerY) * self.ratioRightY)
             if calibratedRightY > 1:
                 calibratedRightY = 1
-            calibratedPoints.append(calibratedRightY)
+            new_gaze[0][1] = calibratedRightY
 	"""print calibratedPoints"""
-        return calibratedPoints
+        return new_gaze
 
 if __name__ == '__main__':
 	test_gaze_history = [((0.2,0.4),1),((0.4,0.2),1),((0.4,0.4),1),((0.2,0.2),1)]
