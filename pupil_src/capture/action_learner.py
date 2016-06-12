@@ -4,8 +4,7 @@ from sklearn.ensemble import RandomForestClassifier
 
 
 class ActionLearner:
-    def __init__(self, data, threshold):
-        self.threshold = threshold
+    def __init__(self, data):
         self.original_data = data
         self.model = self.learn(data[:, :-1], data[:, -1])
 
@@ -21,11 +20,7 @@ class ActionLearner:
         prediction_prob = max(prediction_probs)
         print prediction, prediction_probs, prediction_prob
 
-        if prediction < self.threshold:
-            # TODO: znacilk naj bo ene par in nared metodo v controlerju k jih nardi iz podatkov
-            pass # TODO: doloc na roke... in das prediction = Action.neki
-
-        return prediction
+        return prediction, prediction_prob
 
 
 if __name__ == '__main__':

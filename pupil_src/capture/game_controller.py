@@ -72,7 +72,6 @@ class GameController(Plugin):
     '''
     Central area where nothing happens, and 4 directions where shit happens.
     '''
-    # TODO: keypress start/stop when over radius threshold (game engine type checking).
 
     def __init__(self, g_pool, filter_active=True, simulate_keypresses=True, no_action_radius=0.25):
         super(GameController, self).__init__(g_pool)
@@ -109,8 +108,6 @@ class GameController(Plugin):
         #threading.Thread(target=self.key_capturing).start()
 
     def update(self, frame, events):
-        # TODO: last 3? so there are more per frame???
-
         frame_positions = []
 
         if self.filter_active:
@@ -142,7 +139,7 @@ class GameController(Plugin):
             self.learning_data_single_take += frame_positions
 
         if not self.learned and len(self.learning_data) == self.learning_repetitions * Action.action_count:
-            self.learner = ActionLearner(self.learning_data, self.accepted_threshold)
+            self.learner = ActionLearner(self.learning_data)
             self.learned = True
 
         if self.calibrated and self.learned:
@@ -245,13 +242,17 @@ class GameController(Plugin):
 
             print(features)
 
-            action_pred = self.ActionLearner.predict(features)
+            action_pred, confidence = self.learner.predict(features)
+
+            if confidence < self.accepted_threshold:
+                # TODO: znacilk naj bo ene par in nared metodo v controlerju k jih nardi iz podatkov
+                pass  # TODO: doloc na roke... in das prediction = Action.neki
 
         except:
             print("except")
-            action_pred = Action.IDLE
+            action_pred = Action.IDLE # TODO: tole bo stran za dat. al learner pove da je idle al pa na roke ugotovis da je kle zgori
 
-	return action_pred
+        return action_pred
 
 
     def update_action(self):
@@ -289,9 +290,7 @@ class GameController(Plugin):
             self.fake_frame_hold = 60
         else:
             self.fake_frame_hold -= 1
-		'''
-        
-
+        '''
 
     def update_keypress(self):
         # TODO: only change when different action, otherwise continuous press (game engine)
@@ -299,7 +298,7 @@ class GameController(Plugin):
             return
 
         print self.action
-        action = Action()  # TODO: NEMORS KR TKO! ce sta dva pressa mors oba nehat izvajat!
+        action = Action()
 
         if self.action_history[-1] == Action.NW or self.action_history[-1] == Action.NE \
                 or self.action_history[-1] == Action.SW or self.action_history[-1] == Action.SE:
@@ -319,7 +318,7 @@ class GameController(Plugin):
         elif self.action == Action.E:
             self.simulate_keypress("keydown " + action.to_string(self.action))
         elif self.action == Action.SW:
-            self.simulate_keypress("keydown " + action.to_string(self.action)[1])  # self.action[0] ??? wat srsly glej faking kodo k pises shit
+            self.simulate_keypress("keydown " + action.to_string(self.action)[1])
             self.simulate_keypress("keydown " + "space ")
         elif self.action == Action.SE:
             self.simulate_keypress("keydown " + action.to_string(self.action)[0])
