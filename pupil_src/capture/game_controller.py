@@ -5,12 +5,12 @@ It's also a plugin. Mind = blown. But not like Jesse was.
 
 from plugin import Plugin
 from subprocess import Popen, PIPE
-from scipy import stats
 import numpy as np
 import sys
 import threading
 from action_learner import ActionLearner
 from Calibrator import Calibrator
+
 
 class Action:
     action_count = 11
@@ -19,7 +19,7 @@ class Action:
 
     def to_string(self, action):
         if action == self.IDLE:
-            return "Idle "  # test this
+            return "Idle "
         elif action == self.W:
             return "Left "
         elif action == self.E:
@@ -70,7 +70,7 @@ class Smoothing_Filter(object):
 
 class GameController(Plugin):
     '''
-    Central area where nothing happens, and 4 directions where shit happens.
+    Central area where nothing happens, and 8 directions where sh*t happens.
     '''
 
     def __init__(self, g_pool, filter_active=True, simulate_keypresses=True, no_action_radius=0.25):
@@ -79,17 +79,20 @@ class GameController(Plugin):
         self.simulate_keypresses = simulate_keypresses
         self.no_action_radius = no_action_radius
         self.gaze_history = []
-        self.action_history = [Action.IDLE]  # redundant?
+        self.action_history = [Action.IDLE]
         self.action = Action.IDLE
+        self.filter = Smoothing_Filter()
 
-        self.pause = True
+        self.run_test = True
+        # TODO: Change to False for real usage.
+        self.pause = False
         self.calibrated = False
         self.learned = False
 
         self.calibrator = None
 
         self.click_count = 0
-        self.learning_repetitions = 3
+        self.learning_repetitions = 1 if self.run_test else 3
         self.learning_index = 0
         self.learning_data = []
         self.learning_data_single_take = []
@@ -105,11 +108,12 @@ class GameController(Plugin):
         self.fake_frame_hold = 60
         self.fake_counter = 0
 
-        threading.Thread(target=self.key_capturing).start()
+        #threading.Thread(target=self.key_capturing).start()
 
     def update(self, frame, events):
 
         frame_positions = []
+        if self.run_test: frame_positions = self.fake_gaze_history  # test
 
         if self.filter_active:
             for pt in events.get('gaze_positions', []):
@@ -118,8 +122,8 @@ class GameController(Plugin):
             for pt in events.get('gaze_positions', []):
                 frame_positions.append((pt['norm_pos'], pt['confidence']))
 
-        if self.calibrated:
-            frame_positions = self.calibrator.transform(frame_positions)
+        #if self.calibrated:
+            #frame_positions = self.calibrator.transform(frame_positions)
 
         self.gaze_history += frame_positions
         self.gaze_history[:-100] = []  # max gaze history length
@@ -130,13 +134,15 @@ class GameController(Plugin):
         if not self.calibrated and len(self.gaze_history) == 100:
             self.calibrator = Calibrator(self.gaze_history)
             self.calibrated = True
+            print "Calibrated!"
 
         if not self.learned and self.click_count % 2 == 1:
             self.learning_data_single_take += frame_positions
 
         if not self.learned and len(self.learning_data) == self.learning_repetitions * Action.action_count:
-            self.learner = ActionLearner(self.learning_data)
+            self.learner = ActionLearner(np.array(self.learning_data))
             self.learned = True
+            print "Learned!"
 
         if self.calibrated and self.learned:
             self.update_action()
@@ -153,8 +159,10 @@ class GameController(Plugin):
         self.click_count += 1
 
         if self.click_count % 2 == 0:
-            print self.learning_data_single_take + [actions[self.learning_index]]
-            self.learning_data.append(self.get_features(self.learning_data_single_take) + [actions[self.learning_index]])
+            features = self.get_features(self.learning_data_single_take)
+            features = np.append(features, actions[self.learning_index])
+            self.learning_data.append(features)
+            #print self.learning_data[-1]
             self.learning_data_single_take = []
 
             if self.click_count % (2 * self.learning_repetitions) == 0:
@@ -162,34 +170,24 @@ class GameController(Plugin):
 
         # 1. click = start collecting calibration data
         # 2. click = stop and calibrate
-
         # 3. click = start collecting learning data - N
         # 4. click = stop
-
         # 5. click = start collecting learning data - S
         # 6. click = stop
-
         # 7. click = start collecting learning data - W
         # 8. click = stop
-
         # 9. click = start collecting learning data - E
         # 10. click = stop
-
         # 11. click = start collecting learning data - NW
         # 12. click = stop
-
         # 13. click = start collecting learning data - NE
         # 14. click = stop
-
         # 15. click = start collecting learning data - SW
         # 16. click = stop
-
         # 17. click = start collecting learning data - SE
         # 18. click = stop
-
         # 19. click = start collecting learning data - V
         # 20. click = stop
-
         # 21. click = start collecting learning data - A
         # 22. click = stop
 
@@ -198,7 +196,6 @@ class GameController(Plugin):
     def get_features(self, gaze_history):
         #ali je simple akcija
         short_gaze_len = 10
-
         short_gaze_history = gaze_history[:short_gaze_len]
 
         #min in max vrednost
@@ -207,7 +204,7 @@ class GameController(Plugin):
         max_index = [gaze[0][1] for gaze in gaze_history].index(max([gaze[0][1] for gaze in gaze_history]))
         max_x, max_y = gaze_history[max_index][0]
 
-        #centroid in devianco se racuna na krajsem gaze_history-ju, ker je akcija krajsa
+        #centroid in deviacijo se racuna na krajsem gaze_history-ju, ker je akcija krajsa
         centroid_x = sum([gaze[0][0] for gaze in short_gaze_history])/short_gaze_len
         centroid_y = sum([gaze[0][1] for gaze in short_gaze_history])/short_gaze_len
         centroid_dev = (sum([(gaze[0][0]-centroid_x)**2+(gaze[0][1]-centroid_y)**2 for gaze in short_gaze_history])/short_gaze_len)**(1/2)
@@ -228,21 +225,15 @@ class GameController(Plugin):
         return features
 
     def recognize_action(self):
-
-        # TODO: check if direction or a special action. If special detected, delete gaze history.
-        # TODO: problem je diferenciirat med simple smernimi akcijami in izvajanjem specialnih
-        # TODO: ce je smerna NE izbrises historija; ko detektira da se izvaja posebna akcija blocka normalne in
-        # TODO: odklene ko faila ali konca specialno?
-        # TODO: triggras specialne iz idle pa ne tko da zacne normalne delat.
-
         short_gaze_len = 10
         dev_treshold = 0.3
 
+        if self.run_test: self.gaze_history = self.fake_gaze_history  # test
+
         try:
             features = self.get_features(self.gaze_history)
-
-            self.gaze_history = []
             action_pred, confidence = self.learner.predict(features)
+            print "predicted action: ", action_pred, "; confidence: ", confidence
 
             if confidence < self.accepted_threshold:
                 short_gaze_history = self.gaze_history[:short_gaze_len]
@@ -252,8 +243,6 @@ class GameController(Plugin):
                 centroid_dev = (sum([(gaze[0][0]-centroid_x)**2+(gaze[0][1]-centroid_y)**2 for gaze in short_gaze_history])/short_gaze_len)**(1/2)
 
                 if centroid_dev <= dev_treshold:
-
-                    self.gaze_history = []
 
                     if (((centroid_x-1/2)**2+(centroid_y-1/2)**2)**(1/2) <= self.no_action_radius):
                         return Action.IDLE
@@ -282,26 +271,14 @@ class GameController(Plugin):
                 else:
                     return Action.IDLE
 
+            self.gaze_history = []
+
         except:
-            print("except")
             action_pred = Action.IDLE
 
         return action_pred
 
-
     def update_action(self):
-
-        # TODO: kle v recognize dej da zracuna znacilke za zadne tok pa tok framov tko da dobis tok
-        # znacilk kot je treba pol jih pa fuknes tko v self.learner.predict(features)
-        # in ti vrne Action.NEKI
-        # vse to kar ti delas more bit v predict metodi ne kle v game controllerju
-        # tm pa tko k prdicta dobi vn tut en procent, in ce je ta mansi kot threshold ti na roko dolocs
-        # kasna je akcija in jo returnas!!!!!!!!!!!!!!!!!
-
-        # torej: v recognize nared extrakcijo znacilk in posl v prediktor
-        # v prediktorju dobis action, ce je pa % pod thresholdom pa na roke dolocs kera akcija je,
-        # tko k zdele delas i think v recognize_action
-
         self.action = self.recognize_action()
         self.action_history.append(self.action)
         self.action_history[:-7] = []
@@ -324,9 +301,7 @@ class GameController(Plugin):
             self.fake_frame_hold -= 1
         '''
 
-
     def update_keypress(self):
-        # TODO: only change when different action, otherwise continuous press (game engine)
         if self.action_history[-1] == self.action:
             return
 
@@ -378,8 +353,6 @@ class GameController(Plugin):
             self.calibrated = True
         elif key == 'x':
             exit('exitting')
-        #else:
-        #    print( key, end="", flush = True)
         print self.calibrated
         sys.stdout.flush()
 
