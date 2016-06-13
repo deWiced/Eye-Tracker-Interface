@@ -105,7 +105,7 @@ class GameController(Plugin):
         self.fake_frame_hold = 60
         self.fake_counter = 0
 
-        #threading.Thread(target=self.key_capturing).start()
+        threading.Thread(target=self.key_capturing).start()
 
     def update(self, frame, events):
 
@@ -371,7 +371,6 @@ class GameController(Plugin):
         p = Popen(['xte'], stdin=PIPE)
         p.communicate(input=sequence)
 
-    '''
     def process(self, key):
         if key == 'p':
             self.pause = not self.pause
@@ -383,10 +382,11 @@ class GameController(Plugin):
         #    print( key, end="", flush = True)
         print self.calibrated
         sys.stdout.flush()
+
     def key_capturing(self):
         while True:
             self.process(sys.stdin.read(1))
-    '''
+
 
 if __name__ == '__main__':
     ctrl = GameController([])

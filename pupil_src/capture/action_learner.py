@@ -26,7 +26,7 @@ class ActionLearner:
 if __name__ == '__main__':
     # TODO: normalize data?
     test_data = np.array([[0, 0, 0, "a"], [0.2, 0.2, 0.2, "b"], [0.4, 0.4, 0.4, "c"], [0.6, 0.6, 0.5,"d"], [0.8, 0.8, 0.8, "e"], [1, 1, 1, "f"]]) #[0.1, 0.1, 0.1, 0],
-    learner = ActionLearner(test_data, 0.5)
+    learner = ActionLearner(test_data)
     learner.predict(np.array([0.5, 0.5, 0.5]))
 
 
