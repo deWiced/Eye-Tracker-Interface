@@ -83,8 +83,7 @@ class GameController(Plugin):
         self.action = Action.IDLE
         self.filter = Smoothing_Filter()
 
-        self.run_test = True
-        # TODO: Change to False for real usage.
+        self.run_test = True  # TODO: Change to False for real usage.
         self.pause = False
         self.calibrated = False
         self.learned = False
